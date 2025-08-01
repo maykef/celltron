@@ -6,7 +6,80 @@ structure tensor computation and CPU parallelized eigen-decomposition.
 """
 
 import numpy as np
-import torch
+import torch"""
+Self-contained anisotropy pipeline.
+Just press ⌘-R in PyCharm.
+"""
+
+from pathlib import Path
+from time import time
+import numpy as np
+import napari
+import functions_2 as fn
+
+
+# ------------- PARAMETERS ------------------------------------------------------
+DATA_PATH  = Path("Data/P4D3_C4_ES_thresholded.tif")        # <-- change if needed
+OUT_PATH   = Path("Data/P4D3_C4_ES_thresholded.npz")
+SIGMA      = 1.0                                       # Gaussian radius
+N_WORKERS  = 8                                         # CPU threads
+MASK_THRES = 5 / 255.0                                 # ignore almost-black voxels
+
+
+def main():
+    t0 = time()
+    print("Loading & normalising …")
+    vol = fn.load_volume(str(DATA_PATH))
+
+    print("Computing structure tensor (GPU) …")
+    comps = fn.compute_structure_tensor(vol, sigma=SIGMA)
+
+    # --------------------------------------------------------------------------
+    print("Preparing mask …")
+    mask = vol > MASK_THRES
+
+    print("Eigen-decomposition (CPU×{}) …".format(N_WORKERS))
+    eigvals, eigvecs = fn.eigen_parallel(comps, mask, n_jobs=N_WORKERS)
+
+    print("Anisotropy metrics …")
+    metrics = fn.anisotropy_metrics(eigvals)
+
+    # --------------------------------------------------------------------------
+    elapsed = time() - t0
+    print(f"Done in {elapsed:0.1f} s")
+
+    # reshape back to volume ----------------------------------------------------
+    shape = vol.shape
+    out_vols = {}
+    for k, arr in metrics.items():
+        full = np.zeros(shape, np.float16)
+        full[mask] = arr
+        out_vols[k] = full
+
+    # principal direction as 3-channel volume
+    dirs_full = np.zeros(shape + (3,), np.float16)
+    dirs_full[mask] = eigvecs
+    out_vols["principal_dir"] = dirs_full
+
+    # --------------------------------------------------------------------------
+    print("Launching napari … close the window to save results.")
+    viewer = napari.Viewer()
+    viewer.add_image(vol, name="Original", colormap="gray", blending="translucent")
+    viewer.add_image(out_vols["fa"], name="Fractional (FA)", colormap="inferno")
+    viewer.add_image(out_vols["cl"], name="Linear (CL)", colormap="magma")
+    viewer.add_image(out_vols["cp"], name="Planar (CP)", colormap="cividis")
+    viewer.add_image(out_vols["cs"], name="Spherical (CS)", colormap="viridis")
+
+    napari.run()      # blocks until viewer is closed
+
+    # --------------------------------------------------------------------------
+    print("Saving compressed results …")
+    np.savez_compressed(OUT_PATH, **out_vols)
+    print(f"Saved → {OUT_PATH.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
 from tifffile import imread
 import napari
 from functions import (
