@@ -10,7 +10,7 @@ A high-performance Python toolkit for **3D microscopy anisotropy analysis** comb
 ## 🚀 Key Features
 
 - **🔥 GPU Acceleration**: Apple MPS backend for structure tensor computation (26-directional analysis)
-- **⚡ CPU Parallelization**: Multi-worker eigen-decomposition (up to 8 cores)
+- **⚡ CPU Parallelism** Eigen‑decomposition chunked & vectorised across 8 processes; no GIL bottleneck, no thread oversubscription
 - **📊 Comprehensive Anisotropy**: FA, CL, CS, CP measures with robust eigenvalue ordering
 - **💾 Memory Efficient**: Float16 precision, compressed NPZ output, optimized for large volumes
 - **📈 Real-time Progress**: TQDM progress tracking without worker duplication
